@@ -1,5 +1,60 @@
-(defmodule MyMod
-  (defn myfun [] ())
+(defmodule Tutorial
+  (defdynamic next- '())
+  (defdynamic sections '())
+
+  (defndynamic question [question answer]
+    (do
+      (macro-log question)
+      (set! Tutorial.next- answer)))
+
+  (defmacro defsection [name :rest contents]
+    (set! Tutorial.sections (cons-last (list name contents) Tutorial.sections)))
+
+  (defndynamic play-section-detail [detail]
+    (if (list? detail)
+      (eval detail)
+      (macro-log detail)))
+
+  (defndynamic play-section [section]
+    (do
+      (macro-log "# " (car section))
+      (macro-log "")
+      (map Tutorial.play-section-detail (cadr section))
+      (macro-log "")))
+
+  (defndynamic play [s]
+    (do
+      (map Tutorial.play-section s)
+      "You've finished the tutorial!"))
 )
 
-(macro-error "TODO: implement me!")
+(Tutorial.defsection "Introduction"
+  "This is a tutorial for Carp. It is meant to help you get started, and help "
+  "you understand what Carp is about."
+  ""
+  "Throughout this tutorial, you will sometimes be asked to write code. To do "
+  "that, you will have to use the `submit` function. Let’s try it out!"
+  ""
+  (Tutorial.question
+    "Sadly this does not currently work!"
+    true))
+
+(Tutorial.defsection "To Do" "This is still to do!")
+
+(defmacro submit [form]
+  (if (and (list? Tutorial.next-) (= (length Tutorial.next-) 0))
+    (macro-error "No question was asked yet!")
+    (if (= Tutorial.next- form)
+      (do
+        (macro-log "That’s correct!")
+        (macro-log "Result: " (eval form)))
+      (do
+        (macro-log "That’s not quite right.")
+        (macro-log "If you are not sure about the answer, type `(reveal)`.")))))
+
+(defndynamic reveal []
+  (do
+    (macro-log "The answer I was looking for was: " Tutorial.next-)
+    (macro-log "Result: " (eval Tutorial.next-))))
+
+(defndynamic tutorial [] (Tutorial.play Tutorial.sections))
