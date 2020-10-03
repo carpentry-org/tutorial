@@ -1,31 +1,75 @@
 (defmodule Tutorial
   (defdynamic next- '())
   (defdynamic sections '())
+  (defdynamic waiting false)
 
+  ;; For whatever reason, calling set! here doesn't work, so it's been bumped up to
+  ;; play-section, where it does work \_(ツ)_/.
+  (doc question
+       "Add a question to a tutorial section."
+       ""
+       "Questions prompt a user for input equal to `answer`."
+       "The prompt displayed is `question`. Users answer questions using `submit`."
+       ""
+       "```"
+       "(Tutorial.question \"How old are you?\ 1000)"
+       "```")
   (defndynamic question [question answer]
-    (do
-      (macro-log question)
-      (set! Tutorial.next- answer)))
+    (fn [] (do (macro-log question)
+               answer)))
 
+  (doc defsection
+       "Defines a new section for a tutorial."
+       "Sections are comprised of a name and any number of strings and `question`s."
+       ""
+       "```"
+       "(Tutorial.defsection \"Introduction\""
+       "\"This is a tutorial for Carp. It is meant to help you get started, and help \""
+       "\"you understand what Carp is about.\""
+       ""
+       "\"Throughout this tutorial, you will sometimes be asked to write code. To do \""
+       "\"that, you will have to use the `submit` function. Let’s try it out!\""
+       ""
+       "(Tutorial.question"
+         "\"Would you like to continue? If so, enter `(submit true)`\""
+         "true))"
+       ""
+       "```")
   (defmacro defsection [name :rest contents]
-    (set! Tutorial.sections (cons-last (list name contents) Tutorial.sections)))
+    (do
+      (set! Tutorial.sections
+            (cons-last (list name contents) Tutorial.sections))))
 
+  ;; Returns a listy tuple, containing 1. the answer to a question, if asked, and 2. a bool indicating whether or not
+  ;; we should wait til the next submit call to continue to the next section.
   (defndynamic play-section-detail [detail]
-    (if (list? detail)
-      (eval detail)
-      (macro-log detail)))
+        (if (list? detail)
+            (if (empty? detail)
+                ()
+                (list (detail)
+                    true))
+            (do (macro-log detail)
+                (list () false))))
 
-  (defndynamic play-section [section]
-    (do
-      (macro-log "# " (car section))
-      (macro-log "")
-      (map Tutorial.play-section-detail (cadr section))
-      (macro-log "")))
+  (defndynamic play-section [sections]
+    (if (empty? sections)
+        (do (macro-log "You've reached the end of the tutorial, congrats!")
+            ())
+        (do (macro-log "# " (car (car sections)))
+             (macro-log "")
+             (macro-log "")
+             (let [res (last (map Tutorial.play-section-detail (cadr (car sections))))]
+             (if (cadr res)
+                 (do
+                     (set! Tutorial.sections (cdr sections))
+                     (set! Tutorial.waiting true)
+                     (set! Tutorial.next- (car res)))
+                 (Tutorial.play (cdr sections))))))) ;; no wait, advance to the next section
 
-  (defndynamic play [s]
-    (do
-      (map Tutorial.play-section s)
-      "You've finished the tutorial!"))
+  (doc play
+       "Runs a tutorial from start to finish, keeping track of question state.")
+  (defndynamic play [sections]
+    (Tutorial.play-section sections))
 )
 
 (Tutorial.defsection "Introduction"
@@ -36,25 +80,34 @@
   "that, you will have to use the `submit` function. Let’s try it out!"
   ""
   (Tutorial.question
-    "Sadly this does not currently work!"
+    "Would you like to continue? If so, enter `(submit true)`"
     true))
 
-(Tutorial.defsection "To Do" "This is still to do!")
+(Tutorial.defsection "To Do"
+  "This is still to do!")
 
+(doc submit
+     "Submits an answer to a tutorial question.")
 (defmacro submit [form]
-  (if (and (list? Tutorial.next-) (= (length Tutorial.next-) 0))
+  (if (and (and (list? Tutorial.next-) (= (length Tutorial.next-) 0))
+           (= Tutorial.waiting false))
     (macro-error "No question was asked yet!")
     (if (= Tutorial.next- form)
       (do
         (macro-log "That’s correct!")
-        (macro-log "Result: " (eval form)))
+        (macro-log "Result: " (eval form))
+        (set! Tutorial.waiting false)
+        (Tutorial.play Tutorial.sections)) ;; run the next section
       (do
         (macro-log "That’s not quite right.")
         (macro-log "If you are not sure about the answer, type `(reveal)`.")))))
 
+(doc reveal
+     "Reveals the answer to a tutorial question.")
 (defndynamic reveal []
   (do
     (macro-log "The answer I was looking for was: " Tutorial.next-)
-    (macro-log "Result: " (eval Tutorial.next-))))
+    (macro-log "Result: " (eval Tutorial.next-))
+    ((car Tutorial.sections))))
 
 (defndynamic tutorial [] (Tutorial.play Tutorial.sections))
