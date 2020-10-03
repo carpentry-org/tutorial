@@ -107,7 +107,6 @@
 (defndynamic reveal []
   (do
     (macro-log "The answer I was looking for was: " Tutorial.next-)
-    (macro-log "Result: " (eval Tutorial.next-))
-    ((car Tutorial.sections))))
+    (macro-log "Result: " (eval Tutorial.next-))))
 
 (defndynamic tutorial [] (Tutorial.play Tutorial.sections))
