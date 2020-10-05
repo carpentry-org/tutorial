@@ -1,6 +1,7 @@
 (defmodule Tutorial
   (defdynamic next- '())
   (defdynamic sections '())
+  (defdynamic all-sections '())
   (defdynamic waiting false)
 
   ;; For whatever reason, calling set! here doesn't work, so it's been bumped up to
@@ -38,7 +39,10 @@
   (defmacro defsection [name :rest contents]
     (do
       (set! Tutorial.sections
-            (cons-last (list name contents) Tutorial.sections))))
+            (cons-last (list name contents) Tutorial.sections))
+      ;; Maintain a master list of sections so that we may start any section of the tutorial.
+      (set! Tutorial.all-sections
+            (cons-last (list name contents) Tutorial.all-sections))))
 
   ;; Returns a listy tuple, containing 1. the answer to a question, if asked, and 2. a bool indicating whether or not
   ;; we should wait til the next submit call to continue to the next section.
@@ -85,6 +89,54 @@
 
 (Tutorial.defsection "To Do"
   "This is still to do!")
+
+(doc toc
+     "Returns a table of contents for a tutorial as a list of "
+     "index/title pairs, indexed from 0."
+     ""
+     "```"
+     "(toc)"
+     "=> ([0 \"Introduction\"] [1 \"To Do\"])"
+     "```")
+(defndynamic toc []
+  (let [sections (map car Tutorial.all-sections)
+        indices (unreduce (curry + 1) -1 (length Tutorial.all-sections) (list))]
+    (zip (curry (flip collect-into) 'array) indices sections)))
+
+(doc start-tutorial-at
+     "Starts a tutorial from a given section number."
+     "Call `toc` to get section numbers."
+     ""
+     "```"
+     "(start-tutorial-at 1)"
+     "=> # To Do"
+     "...tutorial contents etc."
+     "(start-tutorial-at 0)"
+     "=> # Introduction"
+     "... etc."
+     "```")
+(defndynamic start-tutorial-at [section-number]
+  (let [sections (toc)
+        index (- section-number 1)]
+    (do (if (< index 0)
+            (set! Tutorial.sections Tutorial.all-sections)
+            (set! Tutorial.sections (eval (nthcdr index Tutorial.all-sections))))
+        (Tutorial.play Tutorial.sections))))
+
+(doc restart-tutorial
+     "Starts a tutorial from its first section, regardless of the current state."
+     ""
+     "```"
+     "(tutorial)"
+     "=> # Section One"
+     "(submit answer)"
+     "=> # Section Two"
+     "(restart-tutorial)"
+     "=> # Section One"
+     "```")
+(defndynamic restart-tutorial []
+  (do (set! Tutorial.sections Tutorial.all-sections)
+      (Tutorial.play Tutorial.sections)))
 
 (doc submit
      "Submits an answer to a tutorial question.")
