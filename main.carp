@@ -213,5 +213,4 @@
     (set! Tutorial.waiting false)
     (Tutorial.play Tutorial.sections))) ;; run the next section
 
-
 (defndynamic tutorial [] (Tutorial.play Tutorial.sections))
